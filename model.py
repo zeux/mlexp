@@ -20,24 +20,12 @@ class Head(nn.Module):
         self.query = nn.Linear(n_embed, head_size, bias=False)
         self.value = nn.Linear(n_embed, head_size, bias=False)
 
-        # lower triangular matrix, used to block attention between a token and subsequent tokens
-        self.register_buffer('tril', torch.tril(torch.ones(block_size, block_size)))
-
-        self.dropout = nn.Dropout(dropout)
-
     def forward(self, x):
         B,T,C = x.shape
         k = self.key(x)
         q = self.query(x)
         v = self.value(x)
-        # compute attention scores (affinities)
-        wei = q @ k.transpose(-2,-1) # computes (scaled) dot product between every token pair
-        wei = wei * C**-0.5 # we need to normalize weights to be scale-invariant
-        wei = wei.masked_fill(self.tril[:T, :T] == 0, float('-inf')) # TODO: why do we need tensor slicing?
-        wei = F.softmax(wei, dim=-1)
-        wei = self.dropout(wei)
-        # weighted aggregation of values
-        out = wei @ v
+        out = F.scaled_dot_product_attention(q, k, v, attn_mask=None, dropout_p=dropout, is_causal=True)
         return out
 
 class Heads(nn.Module):
@@ -59,7 +47,7 @@ class FeedForward(nn.Module):
         self.net = nn.Sequential(
             nn.Linear(n_embed, n_embed * 4),
             nn.ReLU(),
-            nn.Linear(n_embed * 4, n_embed), # acts as a projection layer?
+            nn.Linear(n_embed * 4, n_embed),
             nn.Dropout(dropout),
         )
 

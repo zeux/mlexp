@@ -63,7 +63,7 @@ optimizer = torch.optim.AdamW(m.parameters(), lr=learning_rate)
 print(f"{sum(p.numel() for p in m.parameters())/1e6:.2f} M parameters")
 
 if os.path.exists(model_path):
-    m.load_state_dict(torch.load(model_path, weights_only=True))
+    m.load_state_dict(torch.load(model_path, weights_only=True), strict=False)
 
 cpt = time.time()
 
