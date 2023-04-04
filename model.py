@@ -6,8 +6,8 @@ from tokenizer import vocab_size
 
 # parameters
 block_size = 256
-n_embed = 384
-n_head = 6
+n_embed = 768
+n_head = 8 # can't push to 12 without OOM
 n_layers = 6
 dropout = 0.2
 device = 'cuda' if torch.cuda.is_available() else 'cpu' # TODO

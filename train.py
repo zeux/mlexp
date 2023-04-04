@@ -13,21 +13,32 @@ from model import SmolLM, block_size
 import time
 
 # training parameters
-batch_size = 64
-learning_rate = 3e-4
+batch_size = 1
+learning_rate = 1e-4 # TODO, starts at 3e-4
 eval_interval = 100
 eval_iters = 100
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 model_path = "weights.pth"
-data_path = 'data/linux.txt'
+data_path = 'data/all.txt'
 
 # data
 if os.path.exists(data_path + ".tokens"):
     data = safetensors.torch.load_file(data_path + ".tokens")["data"]
 else:
     print("Tokenizing data... (will take a while)")
-    with open(data_path, 'r') as f: text = f.read()
-    data = torch.tensor(encode(text), dtype=torch.long)
+    data = torch.zeros(os.path.getsize(data_path), dtype=torch.short)
+    with open(data_path, 'rb') as f:
+        off = 0
+        loff = 0
+        for line in f:
+            enc = encode(line)
+            data[off:off+len(enc)] = torch.tensor(enc, dtype=torch.short)
+            off += len(enc)
+            loff += len(line)
+            if 100 * (loff - len(line)) // data.size(0) != 100 * loff // data.size(0):
+                print(f"{100 * loff // data.size(0)}%...")
+        data = data[:off]
+    print("ok, done! saving now")
     safetensors.torch.save_file({ "data": data }, data_path + ".tokens")
 
 # train & test
@@ -40,8 +51,8 @@ def get_batch(split):
     assert(split == "train" or split == "test")
     data = train_data if split == "train" else test_data
     ix = torch.randint(len(data) - block_size, (batch_size,))
-    x = torch.stack([data[i:i+block_size] for i in ix])
-    y = torch.stack([data[i+1:i+block_size+1] for i in ix])
+    x = torch.stack([data[i:i+block_size].type(torch.long) for i in ix])
+    y = torch.stack([data[i+1:i+block_size+1].type(torch.long) for i in ix])
     return x.to(device), y.to(device)
 
 # loss estimation

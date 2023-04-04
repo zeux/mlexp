@@ -14,6 +14,7 @@ model_path = "weights.pth"
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # generate new tokens by repeatedly getting the next prediction from the model
+@torch.no_grad()
 def generate(model, idx, max_new_tokens):
     # idx is (B,T) array of indices in the current context
     for _ in range(max_new_tokens):
@@ -44,4 +45,16 @@ for prompt in sys.stdin:
         m.load_state_dict(torch.load(model_path, weights_only=True))
 
     idx = torch.tensor([encode(prompt.rstrip())], dtype=torch.long, device=device)
-    print(decode(generate(m, idx, max_new_tokens=500)[0].tolist()))
+    pred = generate(m, idx, max_new_tokens=500)[0].tolist()
+
+    # TODO: sentencepiece decode doesn't work well for newlines so this is hacking the output up a bit for now
+    line = []
+    for i in pred:
+        if i == 0:
+            print(decode(line))
+            line = []
+        else:
+            line.append(i)
+
+    if len(line) > 0:
+        print(decode(line))
