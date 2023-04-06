@@ -15,14 +15,18 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 # generate new tokens by repeatedly getting the next prediction from the model
 @torch.no_grad()
-def generate(model, idx, max_new_tokens):
+def generate(model, idx, max_new_tokens, temperature=1.0, top_k=200):
     # idx is (B,T) array of indices in the current context
     for _ in range(max_new_tokens):
         # get prediction from last context
         pidx = idx[:, -block_size:]
         logits, _ = model(pidx)
         # focus on last time step
-        logits = logits[:, -1, :] # becomes (B,C)
+        logits = logits[:, -1, :] / temperature # becomes (B,C)
+        # limit to just top probabilities
+        if top_k and top_k > logits.size(-1):
+            v, _ = torch.topk(logits, top_k)
+            logits[logits < v[:, [-1]]] = -float('Inf')
         # apply softmax to get probabilities
         probs = F.softmax(logits, dim=-1) # (B,C)
         # sample from distribution
