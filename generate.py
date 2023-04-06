@@ -46,15 +46,4 @@ for prompt in sys.stdin:
 
     idx = torch.tensor([encode(prompt.rstrip())], dtype=torch.long, device=device)
     pred = generate(m, idx, max_new_tokens=500)[0].tolist()
-
-    # TODO: sentencepiece decode doesn't work well for newlines so this is hacking the output up a bit for now
-    line = []
-    for i in pred:
-        if i == 0:
-            print(decode(line))
-            line = []
-        else:
-            line.append(i)
-
-    if len(line) > 0:
-        print(decode(line))
+    print(decode(pred))

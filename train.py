@@ -11,10 +11,11 @@ from tokenizer import encode, decode
 from model import SmolLM, block_size
 
 import time
+import random
 
 # training parameters
-batch_size = 1
-learning_rate = 1e-4 # TODO, starts at 3e-4
+batch_size = 64
+learning_rate = 3e-4
 eval_interval = 100
 eval_iters = 100
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -22,37 +23,33 @@ model_path = "weights.pth"
 data_path = 'data/all.txt'
 
 # data
-if os.path.exists(data_path + ".tokens"):
-    data = safetensors.torch.load_file(data_path + ".tokens")["data"]
-else:
-    print("Tokenizing data... (will take a while)")
-    data = torch.zeros(os.path.getsize(data_path), dtype=torch.short)
-    with open(data_path, 'rb') as f:
-        off = 0
-        loff = 0
-        for line in f:
-            enc = encode(line)
-            data[off:off+len(enc)] = torch.tensor(enc, dtype=torch.short)
-            off += len(enc)
-            loff += len(line)
-            if 100 * (loff - len(line)) // data.size(0) != 100 * loff // data.size(0):
-                print(f"{100 * loff // data.size(0)}%...")
-        data = data[:off]
-    print("ok, done! saving now")
-    safetensors.torch.save_file({ "data": data }, data_path + ".tokens")
-
-# train & test
-n = int(0.9 * len(data))
-train_data = data[:n]
-test_data = data[n:]
+with open(data_path, 'r', errors='ignore') as f:
+    lines = f.readlines()
+    train_data = lines[:int(0.9 * len(lines))]
+    test_data = lines[len(train_data):]
 
 # block/batch configuration
-def get_batch(split):
+def random_block(split, size):
     assert(split == "train" or split == "test")
     data = train_data if split == "train" else test_data
-    ix = torch.randint(len(data) - block_size, (batch_size,))
-    x = torch.stack([data[i:i+block_size].type(torch.long) for i in ix])
-    y = torch.stack([data[i+1:i+block_size+1].type(torch.long) for i in ix])
+
+    # at least one token per line => guarantees no oob access
+    line = random.randrange(len(data) - 2 * size)
+    result = []
+
+    while len(result) < 2 * size:
+        result += encode(data[line])
+        line += 1
+
+    # random offset within the block so that we don't always start at line start
+    off = random.randrange(len(result) - size)
+
+    return result[off:off + size]
+
+def get_batch(split):
+    blocks = [torch.tensor(random_block(split, block_size + 1), dtype=torch.long) for _ in range(batch_size)]
+    x = torch.stack([block[:block_size] for block in blocks])
+    y = torch.stack([block[1:block_size+1] for block in blocks])
     return x.to(device), y.to(device)
 
 # loss estimation
