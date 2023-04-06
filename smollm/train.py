@@ -20,7 +20,7 @@ eval_interval = 100
 eval_iters = 100
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 model_path = "weights.pth"
-data_path = 'data/all.txt'
+data_path = 'data.txt'
 
 # data
 with open(data_path, 'r', errors='ignore') as f:
