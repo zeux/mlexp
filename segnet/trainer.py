@@ -53,7 +53,8 @@ def train(model, train_data, val_data, epochs=5, optimizer=torch.optim.AdamW, pl
     print(f"\rTrain [{nparams/1e6:.3f}M params]: {epochs} epochs took {time.time()-start:.2f} sec, train loss {train_loss:>8f}, val loss {val_loss:>8f}")
     
     if plot:
-        plt.plot(train_losses, label="train")
-        plt.plot(val_losses, label="val")
+        # skip first epoch as it usually has an overly high train loss since it aggregates very early samples
+        plt.plot(train_losses[1:], label="train")
+        plt.plot(val_losses[1:], label="val")
         plt.legend()
         plt.show()
