@@ -9,19 +9,23 @@ import time
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 @torch.no_grad()
-def eval(data, model):
+def eval(data, model, batch_limit=None):
     loss = 0
     model.eval()
-    for x, y in data:
+    for i, (x, y) in enumerate(data):
+        if i == batch_limit:
+            break
         x, y = x.to(device), y.to(device)
         pred = model.forward(x)
         loss += model.loss(pred, y).item()
     return loss / len(data)
 
-def trainiter(data, model, optimizer):
+def trainiter(data, model, optimizer, batch_limit=None):
     losses = []
     model.train()
-    for x, y in data:
+    for i, (x, y) in enumerate(data):
+        if i == batch_limit:
+            break
         x, y = x.to(device), y.to(device)
 
         pred = model.forward(x)
@@ -33,17 +37,17 @@ def trainiter(data, model, optimizer):
         optimizer.step()
     return torch.tensor(losses).mean().item()
 
-def train(model, train_data, val_data, epochs=5, optimizer=torch.optim.AdamW, plot=True, **optargs):
+def train(model, train_data, val_data, epochs=5, batch_limit=None, optimizer=torch.optim.AdamW, plot=True, **optargs):
     optimizer = optimizer(model.parameters(), **optargs)
-    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=5, factor=0.5)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=20, factor=0.5)
     
     start = time.time()
     train_losses, val_losses = [], []
     
     for e in range(epochs):
         epoch_start = time.time()
-        train_loss = trainiter(train_data, model, optimizer)
-        val_loss = eval(val_data, model)
+        train_loss = trainiter(train_data, model, optimizer, batch_limit)
+        val_loss = eval(val_data, model, batch_limit // 10 if batch_limit else None)
         print(f"\rEpoch {e}/{epochs}: {time.time()-epoch_start:.2f} sec, train loss {train_loss:>8f}, val loss {val_loss:>8f}, lr {optimizer.param_groups[0]['lr']}", end="")
         scheduler.step(val_loss)
         train_losses.append(train_loss)
