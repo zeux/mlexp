@@ -63,3 +63,5 @@ def train(model, train_data, val_data=None, epochs=5, batch_limit=None, optimize
             plt.plot(val_losses[1:], label="val")
         plt.legend()
         plt.show()
+
+    # return train_losses
